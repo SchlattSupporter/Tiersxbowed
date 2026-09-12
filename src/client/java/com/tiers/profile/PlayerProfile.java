@@ -6,6 +6,7 @@ import com.tiers.TiersClient;
 import com.tiers.misc.Mode;
 import com.tiers.profile.types.PvPTiersProfile;
 import com.tiers.profile.types.SuperProfile;
+import com.tiers.screens.ConfigScreen;
 import com.tiers.textures.ColorControl;
 import com.tiers.textures.Icons;
 import net.fabricmc.loader.api.FabricLoader;
@@ -240,6 +241,12 @@ public class PlayerProfile {
 
                 try (InputStream inputStream = httpURLConnection.getInputStream()) {
                     ImageIO.write(ImageIO.read(inputStream), "png", new File(path + uuid + ".png"));
+                    if (!regular && !uuid.equalsIgnoreCase(ConfigScreen.defaultProfile.uuid)) {
+                        Path ownSkinPath = FabricLoader.getInstance().getGameDir().resolve("cache/tiers/" + uuid + ".png");
+                        Path cacheSkinPath = FabricLoader.getInstance().getGameDir().resolve("cache/tiers/players/" + uuid + ".png");
+                        Files.createDirectories(cacheSkinPath.getParent());
+                        Files.copy(ownSkinPath, cacheSkinPath, StandardCopyOption.REPLACE_EXISTING);
+                    }
                     imageSaved = numberOfImageRequests;
                 }
             } catch (IOException | URISyntaxException ignored) {
@@ -375,54 +382,75 @@ public class PlayerProfile {
     private Component updateProfileNameRight(SuperProfile superProfile, Mode activeMode) {
         MutableComponent returnValue = Component.empty();
 
-        if (superProfile != null && superProfile.status == Status.READY) {
-            GameMode shown = superProfile.getGameMode(activeMode);
+        if (superProfile == null || superProfile.status != Status.READY)
+            return returnValue;
 
-            if ((shown == null || shown.status == Status.SEARCHING) || (shown.status == Status.NOT_EXISTING && displayMode == ModesTierDisplay.SELECTED))
-                return returnValue;
+        GameMode shown = superProfile.getGameMode(activeMode);
 
-            if (displayMode == ModesTierDisplay.ADAPTIVE_HIGHEST && shown.status == Status.NOT_EXISTING && superProfile.highest != null)
-                shown = superProfile.highest;
+        if ((shown == null || shown.status == Status.SEARCHING) || (shown.status == Status.NOT_EXISTING && displayMode == ModesTierDisplay.SELECTED))
+            return returnValue;
 
-            if (displayMode == ModesTierDisplay.HIGHEST && superProfile.highest != null && superProfile.highest.getTierPoints(false) > shown.getTierPoints(false))
-                shown = superProfile.highest;
+        if (displayMode == ModesTierDisplay.ADAPTIVE_HIGHEST && shown.status == Status.NOT_EXISTING && superProfile.highest != null)
+            shown = superProfile.highest;
 
-            if (shown == null || shown.status != Status.READY)
-                return returnValue;
+        if (displayMode == ModesTierDisplay.HIGHEST && superProfile.highest != null && superProfile.highest.getTierPoints(false) > shown.getTierPoints(false))
+            shown = superProfile.highest;
 
-            MutableComponent separator = Component.literal(" | ").setStyle(toggleAdaptiveSeparator ? shown.displayedTier.getStyle() : Style.EMPTY.withColor(ColorControl.getColor("static_separator")));
-            returnValue.append(Component.empty().append(separator).append(shown.displayedTier));
+        if (shown == null || shown.status != Status.READY)
+            return returnValue;
 
-            if (toggleIcons)
-                returnValue.append(Component.literal(" ").append(shown.gamemode.getIconTag()));
-        }
+        MutableComponent separator = Component.literal(" | ").setStyle(toggleAdaptiveSeparator ? (TiersClient.toggleRegion ? superProfile.displayedRegion.getStyle() : ((togglePeak && shown.hasPeak) ? shown.displayedPeakTier.getStyle() : shown.displayedTier.getStyle())) : Style.EMPTY.withColor(ColorControl.getColor("static_separator")));
+        returnValue.append(Component.empty().append(separator));
+
+        if (toggleRegion)
+            returnValue.append(superProfile.displayedRegion).append(Component.literal(" "));
+
+        if (togglePeak && shown.hasPeak)
+            returnValue.append(Component.empty().append(Component.literal("^").withStyle(shown.displayedPeakTier.getStyle())).append(shown.displayedPeakTier));
+        else
+            returnValue.append(Component.empty().append(shown.displayedTier));
+
+        if (toggleIcons)
+            returnValue.append(Component.literal(" ").append(shown.gamemode.getIconTag()));
+
         return returnValue;
     }
 
     private Component updateProfileNameLeft(SuperProfile superProfile, Mode activeMode) {
         MutableComponent returnValue = Component.empty();
 
-        if (superProfile != null && superProfile.status == Status.READY) {
-            GameMode shown = superProfile.getGameMode(activeMode);
+        if (superProfile == null || superProfile.status != Status.READY)
+            return returnValue;
 
-            if ((shown == null || shown.status == Status.SEARCHING) || (shown.status == Status.NOT_EXISTING && displayMode == ModesTierDisplay.SELECTED))
-                return returnValue;
+        GameMode shown = superProfile.getGameMode(activeMode);
 
-            if (displayMode == ModesTierDisplay.ADAPTIVE_HIGHEST && shown.status == Status.NOT_EXISTING && superProfile.highest != null)
-                shown = superProfile.highest;
+        if ((shown == null || shown.status == Status.SEARCHING) || (shown.status == Status.NOT_EXISTING && displayMode == ModesTierDisplay.SELECTED))
+            return returnValue;
 
-            if (displayMode == ModesTierDisplay.HIGHEST && superProfile.highest != null && superProfile.highest.getTierPoints(false) > shown.getTierPoints(false))
-                shown = superProfile.highest;
+        if (displayMode == ModesTierDisplay.ADAPTIVE_HIGHEST && shown.status == Status.NOT_EXISTING && superProfile.highest != null)
+            shown = superProfile.highest;
 
-            if (shown == null || shown.status != Status.READY)
-                return returnValue;
+        if (displayMode == ModesTierDisplay.HIGHEST && superProfile.highest != null && superProfile.highest.getTierPoints(false) > shown.getTierPoints(false))
+            shown = superProfile.highest;
 
-            MutableComponent separator = Component.literal(" | ").setStyle(toggleAdaptiveSeparator ? shown.displayedTier.getStyle() : Style.EMPTY.withColor(ColorControl.getColor("static_separator")));
+        if (shown == null || shown.status != Status.READY)
+            return returnValue;
 
-            if (toggleIcons)
-                returnValue = Component.empty().append(shown.gamemode.getIconTag()).append(" ");
-            returnValue.append(Component.empty().append(shown.displayedTier).append(separator));
-        }
+        MutableComponent separator = Component.literal(" | ").setStyle(toggleAdaptiveSeparator ? (TiersClient.toggleRegion ? superProfile.displayedRegion.getStyle() : ((togglePeak && shown.hasPeak) ? shown.displayedPeakTier.getStyle() : shown.displayedTier.getStyle())) : Style.EMPTY.withColor(ColorControl.getColor("static_separator")));
+
+        if (toggleIcons)
+            returnValue = Component.empty().append(shown.gamemode.getIconTag()).append(" ");
+
+        if (togglePeak && shown.hasPeak)
+            returnValue.append(Component.empty().append(shown.displayedPeakTier)).append(Component.literal("^").withStyle(shown.displayedPeakTier.getStyle()));
+        else
+            returnValue.append(Component.empty().append(shown.displayedTier));
+
+        if (toggleRegion)
+            returnValue.append(Component.literal(" ").append(superProfile.displayedRegion));
+
+        returnValue.append(Component.empty().append(separator));
+
         return returnValue;
     }
 

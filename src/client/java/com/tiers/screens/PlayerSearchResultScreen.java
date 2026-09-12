@@ -9,6 +9,8 @@ import com.tiers.profile.types.PvPTiersProfile;
 import com.tiers.profile.types.SuperProfile;
 import com.tiers.textures.ColorControl;
 import com.tiers.textures.Icons;
+import io.netty.handler.codec.http.HttpUtil;
+import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -20,14 +22,22 @@ import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.network.HiddenByteBuf;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.CommonColors;
 import net.minecraft.util.Util;
 import org.jspecify.annotations.NonNull;
 
+import java.awt.desktop.OpenURIEvent;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 import static com.tiers.TiersClient.LOGGER;
 
@@ -41,6 +51,7 @@ public class PlayerSearchResultScreen extends Screen {
     private boolean small;
     private boolean tooSmall;
     private boolean imageReady;
+    private boolean imageError;
     private boolean toastShown;
 
     public PlayerSearchResultScreen(PlayerProfile playerProfile) {
@@ -127,14 +138,8 @@ public class PlayerSearchResultScreen extends Screen {
 
             graphics.centeredText(font, "Update Tiers or retry in a while", x, (int) (y + 2.8 * separator + 50), CommonColors.YELLOW);
             if (!superProfile.apiErrorShown) {
-                addRenderableWidget(Button.builder(Component.literal("Report issue"), (_) -> {
-                    Minecraft client = Minecraft.getInstance();
-                    client.setScreenAndShow(new ConfirmLinkScreen((confirmed) -> {
-                        if (confirmed)
-                            Util.getPlatform().openUri("https://github.com/PvPTiers/Tiers/issues");
-                        client.setScreenAndShow(this);
-                    }, "https://github.com/PvPTiers/Tiers/issues", true));
-                }).bounds(x - 40, (int) (y + 2.8 * separator + 50 + 12), 80, 20).tooltip(Tooltip.create(Component.literal("Report this issue on GitHub. Make sure to report only if the same search on either mctiers.com, pvptiers.com or subtiers.com doesn't fail"))).build());
+                addRenderableWidget(Button.builder(Component.literal("Report issue"), (_) -> ConfirmLinkScreen.confirmLinkNow(Minecraft.getInstance().gui.screen(), URI.create("https://github.com/PvPTiers/Tiers/issues"), true))
+                        .bounds(x - 40, (int) (y + 2.8 * separator + 50 + 12), 80, 20).tooltip(Tooltip.create(Component.literal("Report this issue on GitHub. Make sure to report only if the same search on either mctiers.com, pvptiers.com or subtiers.com doesn't fail"))).build());
                 superProfile.apiErrorShown = true;
             }
             return;
@@ -239,7 +244,7 @@ public class PlayerSearchResultScreen extends Screen {
         addRenderableWidget(tier);
 
         if (mode.hasPeak && mode.peakTierTooltip.getStyle().getColor() != null) {
-            StringWidget peakTier = new StringWidget(mode.displayedPeakTier, font);
+            StringWidget peakTier = new StringWidget(Component.literal("(").append(mode.displayedPeakTier).append(")").setStyle(mode.displayedPeakTier.getStyle()), font);
             peakTier.setPosition(x + 136, y);
             if (small)
                 peakTier.setPosition(x - 6, y + 24);
@@ -265,7 +270,7 @@ public class PlayerSearchResultScreen extends Screen {
     }
 
     private void loadPlayerAvatar() {
-        if (imageReady)
+        if (imageReady || imageError)
             return;
 
         try (FileInputStream fileInputStream = new FileInputStream(FabricLoader.getInstance().getGameDir().resolve("cache/tiers/players/" + playerProfile.uuid + ".png").toFile())) {
@@ -273,6 +278,7 @@ public class PlayerSearchResultScreen extends Screen {
             imageReady = true;
         } catch (IOException ignored) {
             LOGGER.warn("Error loading player skin");
+            imageError = true;
         }
     }
 
@@ -291,20 +297,12 @@ public class PlayerSearchResultScreen extends Screen {
 
         addRenderableWidget(dimensionsWarning);
 
-        addRenderableWidget(Button.builder(Icons.NAMEMC, (_) -> {
-            Minecraft client = Minecraft.getInstance();
-            client.setScreenAndShow(new ConfirmLinkScreen((confirmed) -> {
-                if (confirmed)
-                    Util.getPlatform().openUri("https://namemc.com/profile/" + playerProfile.uuid);
-                client.setScreenAndShow(this);
-            }, "https://namemc.com/profile/" + playerProfile.uuid, true));
-        }).bounds(width - 20 - 5, height - 20 - 5, 20, 20).tooltip(Tooltip.create(Component.literal("Open " + playerProfile.targetName + "'s NameMC page"))).build());
+        addRenderableWidget(Button.builder(Icons.NAMEMC, (_) -> ConfirmLinkScreen.confirmLinkNow(Minecraft.getInstance().gui.screen(), URI.create("https://namemc.com/profile/" + playerProfile.uuid), true)).bounds(width - 20 - 5, height - 20 - 5, 20, 20).tooltip(Tooltip.create(Component.literal("Open " + playerProfile.targetName + "'s NameMC page"))).build());
 
         addRenderableWidget(Button.builder(Component.literal("Update"), (_) -> TiersClient.showUpdatedPlayerProfile(playerProfile, true)).bounds(5, height - 20 - 5, 68, 20).tooltip(Tooltip.create(Component.literal("Reload the player profile"))).build());
         //addRenderableWidget(Button.builder(Icons.CYCLE, (_) -> playerProfile.updateTierlistProfiles(1)).bounds(5, height - 20 - 5 - 22, 20, 20).tooltip(Tooltip.create(Component.literal("Update MCTiers results"))).build());
         //addRenderableWidget(Button.builder(Icons.CYCLE, (_) -> playerProfile.updateTierlistProfiles(2)).bounds(5 + 24, height - 20 - 5 - 22, 20, 20).tooltip(Tooltip.create(Component.literal("Update PvPTiers results"))).build());
         //addRenderableWidget(Button.builder(Icons.CYCLE, (_) -> playerProfile.updateTierlistProfiles(3)).bounds(5 + 24 + 24, height - 20 - 5 - 22, 20, 20).tooltip(Tooltip.create(Component.literal("Update Subtiers results"))).build());
         addRenderableWidget(Button.builder(Icons.CYCLE, (_) -> playerProfile.updateTierlistProfiles(2)).bounds(5, height - 20 - 5 - 22, 20, 20).tooltip(Tooltip.create(Component.literal("Update PvPTiers results"))).build());
-
     }
 }

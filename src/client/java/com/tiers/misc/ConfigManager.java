@@ -1,6 +1,7 @@
 package com.tiers.misc;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.tiers.TiersClient;
 import com.tiers.textures.Icons;
@@ -18,8 +19,10 @@ import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 public class ConfigManager {
-    private static Config config;
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("Tiers.json");
+    private static final Config DEFAULT_CONFIG = new Config();
+    private static Config config;
     private static String version;
     private static boolean upgradeAdjustmentDone;
     private static int launchTickCounter;
@@ -29,33 +32,34 @@ public class ConfigManager {
     }
 
     private static class Config {
-        boolean toggleMod;
-        boolean toggleIcons;
-        boolean toggleTab;
-        boolean toggleChat;
-        boolean toggleAdaptiveSeparator;
-        boolean toggleAutoKitDetect;
-        TiersClient.ModesTierDisplay displayMode;
-        Icons.Type activeIcons;
+        boolean toggleMod = TiersClient.toggleMod;
+        boolean toggleRegion = TiersClient.toggleRegion;
+        boolean togglePeak = TiersClient.togglePeak;
+        boolean toggleIcons = TiersClient.toggleIcons;
+        boolean toggleTab = TiersClient.toggleTab;
+        boolean toggleChat = TiersClient.toggleChat;
+        boolean toggleAdaptiveSeparator = TiersClient.toggleAdaptiveSeparator;
+        boolean toggleAutoKitDetect = TiersClient.toggleAutoKitDetect;
+        TiersClient.ModesTierDisplay displayMode = TiersClient.displayMode;
+        Icons.Type activeIcons = TiersClient.activeIcons;
 
-//        TiersClient.DisplayStatus positionMCTiers;
-//        Mode activeMCTiersMode;
+//        TiersClient.DisplayStatus positionMCTiers = TiersClient.positionMCTiers;
+//        Mode activeMCTiersMode = TiersClient.activeMCTiersMode;
 
-        TiersClient.DisplayStatus positionPvPTiers;
-        Mode activePvPTiersMode;
+        TiersClient.DisplayStatus positionPvPTiers = TiersClient.positionPvPTiers;
+        Mode activePvPTiersMode = TiersClient.activePvPTiersMode;
 
-//        TiersClient.DisplayStatus positionSubtiers;
-//        Mode activeSubtiersMode;
+//        TiersClient.DisplayStatus positionSubtiers = TiersClient.positionSubtiers;
+//        Mode activeSubtiersMode = TiersClient.activeSubtiersMode;
 
         String version;
     }
 
     public static void loadConfig() {
-        Gson gson = new Gson();
         File file = CONFIG_PATH.toFile();
         if (file.exists()) {
             try (FileReader fileReader = new FileReader(file)) {
-                config = gson.fromJson(fileReader, Config.class);
+                config = GSON.fromJson(fileReader, Config.class);
                 if (config == null)
                     restoreFromClient();
             } catch (IOException | JsonSyntaxException ignored) {
@@ -65,6 +69,8 @@ public class ConfigManager {
             restoreFromClient();
 
         TiersClient.toggleMod = config.toggleMod;
+        TiersClient.toggleRegion = config.toggleRegion;
+        TiersClient.togglePeak = config.togglePeak;
         TiersClient.toggleIcons = config.toggleIcons;
         TiersClient.toggleTab = config.toggleTab;
         TiersClient.toggleChat = config.toggleChat;
@@ -103,6 +109,8 @@ public class ConfigManager {
                     if (launchTickCounter >= 20) {
                         SystemToast.add(minecraft.gui.toastManager(), SystemToast.SystemToastId.NARRATOR_TOGGLE, Component.literal("Thanks for updating Tiers"), Component.literal("Some settings may have changed"));
                         TiersClient.toggleMod = true;
+                        TiersClient.toggleRegion = true;
+                        TiersClient.togglePeak = true;
                         TiersClient.toggleIcons = true;
                         TiersClient.toggleTab = true;
                         TiersClient.toggleChat = true;
@@ -129,7 +137,6 @@ public class ConfigManager {
     }
 
     public static void saveConfig() {
-        Gson gson = new Gson();
         File file = CONFIG_PATH.toFile();
         Config config = new Config();
 
@@ -137,7 +144,7 @@ public class ConfigManager {
 
         CompletableFuture.runAsync(() -> {
             try (FileWriter fileWriter = new FileWriter(file)) {
-                gson.toJson(config, fileWriter);
+                GSON.toJson(config, fileWriter);
             } catch (IOException ignored) {
                 restoreFromClient();
             } finally {
@@ -148,6 +155,8 @@ public class ConfigManager {
 
     private static void updateConfig(Config config) {
         config.toggleMod = TiersClient.toggleMod;
+        config.toggleRegion = TiersClient.toggleRegion;
+        config.togglePeak = TiersClient.togglePeak;
         config.toggleIcons = TiersClient.toggleIcons;
         config.toggleTab = TiersClient.toggleTab;
         config.toggleChat = TiersClient.toggleChat;
@@ -168,9 +177,36 @@ public class ConfigManager {
         config.version = version;
     }
 
+    public static void resetToDefaults() {
+        TiersClient.toggleMod = DEFAULT_CONFIG.toggleMod;
+        TiersClient.toggleRegion = DEFAULT_CONFIG.toggleRegion;
+        TiersClient.togglePeak = DEFAULT_CONFIG.togglePeak;
+        TiersClient.toggleIcons = DEFAULT_CONFIG.toggleIcons;
+        TiersClient.toggleTab = DEFAULT_CONFIG.toggleTab;
+        TiersClient.toggleChat = DEFAULT_CONFIG.toggleChat;
+        TiersClient.toggleAdaptiveSeparator = DEFAULT_CONFIG.toggleAdaptiveSeparator;
+        TiersClient.toggleAutoKitDetect = DEFAULT_CONFIG.toggleAutoKitDetect;
+        TiersClient.displayMode = DEFAULT_CONFIG.displayMode;
+        TiersClient.activeIcons = DEFAULT_CONFIG.activeIcons;
+
+//        TiersClient.positionMCTiers = DEFAULT_CONFIG.positionMCTiers;
+//        TiersClient.activeMCTiersMode = DEFAULT_CONFIG.activeMCTiersMode;
+
+        TiersClient.positionPvPTiers = DEFAULT_CONFIG.positionPvPTiers;
+        TiersClient.activePvPTiersMode = DEFAULT_CONFIG.activePvPTiersMode;
+
+//        TiersClient.positionSubtiers = DEFAULT_CONFIG.positionSubtiers;
+//        TiersClient.activeSubtiersMode = DEFAULT_CONFIG.activeSubtiersMode;
+
+        config = DEFAULT_CONFIG;
+        saveConfig();
+    }
+
     public static String getCurrentConfig() {
         return "\nConfig{" +
                 "\ntoggleMod=" + config.toggleMod +
+                "\ntoggleRegion=" + config.toggleRegion +
+                "\ntogglePeak=" + config.togglePeak +
                 "\ntoggleIcons=" + config.toggleIcons +
                 "\ntoggleTab=" + config.toggleTab +
                 "\ntoggleChat=" + config.toggleChat +

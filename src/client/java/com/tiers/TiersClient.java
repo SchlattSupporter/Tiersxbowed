@@ -1,9 +1,9 @@
 package com.tiers;
 
-import com.mojang.blaze3d.platform.GLX;
-import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.renderpearl.api.device.GpuDevice;
 import com.tiers.misc.CommandRegister;
 import com.tiers.misc.ConfigManager;
 import com.tiers.misc.Mode;
@@ -40,9 +40,10 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import org.apache.commons.io.FileUtils;
-import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import oshi.SystemInfo;
+import oshi.hardware.CentralProcessor;
 
 import java.io.File;
 import java.io.IOException;
@@ -64,6 +65,8 @@ public class TiersClient implements ClientModInitializer {
     public static volatile boolean cachesDirty = false;
 
     public static boolean toggleMod = true;
+    public static boolean toggleRegion = true;
+    public static boolean togglePeak = false;
     public static boolean toggleIcons = true;
     public static boolean toggleTab = true;
     public static boolean toggleChat = true;
@@ -101,15 +104,15 @@ public class TiersClient implements ClientModInitializer {
         });
 
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.parse("tiers"));
-        autoDetectKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("Auto Detect Kit", GLFW.GLFW_KEY_Y, category));
-        openClosestPlayerProfile = KeyMappingHelper.registerKeyMapping(new KeyMapping("Open Closest Player Profile", GLFW.GLFW_KEY_H, category));
-        cycleRightKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("Cycle Right Gamemodes", GLFW.GLFW_KEY_I, category));
-        cycleLeftKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("Cycle Left Gamemodes", GLFW.GLFW_KEY_U, category));
+        autoDetectKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("Auto Detect Kit", InputConstants.KEY_Y, category));
+        openClosestPlayerProfile = KeyMappingHelper.registerKeyMapping(new KeyMapping("Open Closest Player Profile", InputConstants.KEY_H, category));
+        cycleRightKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("Cycle Right Gamemodes", InputConstants.KEY_I, category));
+        cycleLeftKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("Cycle Left Gamemodes", InputConstants.KEY_U, category));
 
         ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(Identifier.parse("tiers"), new ColorLoader());
         ClientTickEvents.END_CLIENT_TICK.register(TiersClient::checkKeys);
         ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
-            if (toggleAutoKitDetect)
+            if (toggleAutoKitDetect && toggleMod)
                 InventoryChecker.checkInventory(minecraft, false);
             if (cachesDirty) {
                 cachesDirty = false;
@@ -302,6 +305,16 @@ public class TiersClient implements ClientModInitializer {
         ConfigManager.saveConfig();
     }
 
+    public static void toggleRegion() {
+        toggleRegion = !toggleRegion;
+        ConfigManager.saveConfig();
+    }
+
+    public static void togglePeak() {
+        togglePeak = !togglePeak;
+        ConfigManager.saveConfig();
+    }
+
     public static void toggleIcons() {
         toggleIcons = !toggleIcons;
         ConfigManager.saveConfig();
@@ -327,11 +340,18 @@ public class TiersClient implements ClientModInitializer {
         ConfigManager.saveConfig();
     }
 
+    public static void resetSettings() {
+        ConfigManager.resetToDefaults();
+        TiersClient.changeIcons(TiersClient.activeIcons, true);
+    }
+
     public static void tiersCommand(String playerName) {
         if (playerName.equalsIgnoreCase("-toggle"))
             toggleMod(null);
         else if (playerName.equalsIgnoreCase("-config"))
             setScreen(ConfigScreen.getConfigScreen(null));
+        else if (playerName.equalsIgnoreCase("-reset"))
+            resetSettings();
         else if (playerName.equalsIgnoreCase("-help") || playerName.equalsIgnoreCase("-debug")) {
             sendMessageToPlayer(Icons.colorText("", CommonColors.WHITE), false);
             sendMessageToPlayer(Icons.colorText("--- Tiers help ---", CommonColors.YELLOW), false);
@@ -388,6 +408,7 @@ public class TiersClient implements ClientModInitializer {
             sendMessageToPlayer(Icons.colorText("/tiers -config", CommonColors.YELLOW), false);
             sendMessageToPlayer(Icons.colorText("/tiers -help | /tiers -debug", CommonColors.YELLOW), false);
             sendMessageToPlayer(Icons.colorText("/tiers -clear", CommonColors.YELLOW), false);
+            sendMessageToPlayer(Icons.colorText("/tiers -reset", CommonColors.YELLOW), false);
             sendMessageToPlayer(Icons.colorText("/tiers -status", CommonColors.YELLOW), false);
             sendMessageToPlayer(Icons.colorText("", CommonColors.WHITE), false);
         } else {
@@ -421,13 +442,15 @@ public class TiersClient implements ClientModInitializer {
         debugInfo[1] += "Instance name: " + Minecraft.getInstance().name() + "\n";
         debugInfo[1] += "Game profile name: " + Minecraft.getInstance().getGameProfile().name() + "\n";
         debugInfo[1] += "OS info:\n\t" + System.getProperty("os.name") + "\n\t" + System.getProperty("os.version") + "\n\t" + System.getProperty("os.arch") + "\n";
-        debugInfo[1] += "CPU info: " + GLX._getCpuInfo() + "\n";
+        CentralProcessor processor = (new SystemInfo()).getHardware().getProcessor();
+        String cpuInfo = String.format(Locale.ROOT, "%dx %s", processor.getLogicalProcessorCount(), processor.getProcessorIdentifier().getName()).replaceAll("\\s+", " ");
+        debugInfo[1] += "CPU info: " + cpuInfo + "\n";
         Runtime runtime = Runtime.getRuntime();
         debugInfo[1] += "RAM info (MB):\n\tMax: " + runtime.maxMemory() / (1024 * 1024) + "\n\tTotal: " + runtime.totalMemory() / (1024 * 1024) + "\n\tFree: " + runtime.freeMemory() / (1024 * 1024) + "\n\tIn use: " + (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024) + "\n";
         GpuDevice gpuDevice = RenderSystem.getDevice();
         debugInfo[1] += "GPU info:\n\t" + gpuDevice.getDeviceInfo().backendName() + "\n\t" + gpuDevice.getDeviceInfo().driverInfo() + "\n\t" + gpuDevice.getDeviceInfo().name() + "\n\t" + gpuDevice.getDeviceInfo().vendorName() + "\n";
         debugInfo[1] += "Java version: " + System.getProperty("java.version") + "\n";
-        debugInfo[1] += "Launch args: " + Arrays.toString(FabricLoader.getInstance().getLaunchArguments(false)) + "\n";
+        debugInfo[1] += "Launch args: " + Arrays.toString(FabricLoader.getInstance().getLaunchArguments(true)) + "\n";
         debugInfo[1] += "All Fabric mods: " + FabricLoader.getInstance().getAllMods() + "\n";
         debugInfo[1] += "Resource packs: " + Minecraft.getInstance().getResourceManager().listPacks().map(PackResources::packId).collect(Collectors.joining(", ")) + "\n";
 

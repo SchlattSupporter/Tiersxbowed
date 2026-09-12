@@ -144,9 +144,13 @@ public class InventoryChecker {
 //            TiersClient.sendMessageToPlayer(Icons.colorText("No gamemode detected", "red"), true);
         if (oldActivePvPTiersMode != TiersClient.activePvPTiersMode && detected != null) {
             ConfigManager.saveConfig();
-            TiersClient.sendMessageToPlayer(Component.empty().append(detected.getTextLabel()).append(Component.literal(" was detected")), true);
-        } else if (showMessage)
-            TiersClient.sendMessageToPlayer(Icons.colorText("No gamemode detected", "red"), true);
+            TiersClient.sendMessageToPlayer(Component.empty().append(Component.literal("Now displaying: ")).append(detected.getTextLabel()), true);
+        } else if (showMessage) {
+            if (detected == null)
+                TiersClient.sendMessageToPlayer(Icons.colorText("No gamemode detected", "red"), true);
+            else
+                TiersClient.sendMessageToPlayer(Component.empty().append(Component.literal("Now displaying: ")).append(detected.getTextLabel()), true);
+        }
     }
 
     private static boolean checkVanilla(Inventory inventory) {
