@@ -9,8 +9,6 @@ import com.tiers.profile.types.PvPTiersProfile;
 import com.tiers.profile.types.SuperProfile;
 import com.tiers.textures.ColorControl;
 import com.tiers.textures.Icons;
-import io.netty.handler.codec.http.HttpUtil;
-import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -22,22 +20,14 @@ import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.network.HiddenByteBuf;
-import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.CommonColors;
-import net.minecraft.util.Util;
 import org.jspecify.annotations.NonNull;
 
-import java.awt.desktop.OpenURIEvent;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 
 import static com.tiers.TiersClient.LOGGER;
 
@@ -139,7 +129,7 @@ public class PlayerSearchResultScreen extends Screen {
             graphics.centeredText(font, "Update Tiers or retry in a while", x, (int) (y + 2.8 * separator + 50), CommonColors.YELLOW);
             if (!superProfile.apiErrorShown) {
                 addRenderableWidget(Button.builder(Component.literal("Report issue"), (_) -> ConfirmLinkScreen.confirmLinkNow(Minecraft.getInstance().gui.screen(), URI.create("https://github.com/PvPTiers/Tiers/issues"), true))
-                        .bounds(x - 40, (int) (y + 2.8 * separator + 50 + 12), 80, 20).tooltip(Tooltip.create(Component.literal("Report this issue on GitHub. Make sure to report only if the same search on either mctiers.com, pvptiers.com or subtiers.com doesn't fail"))).build());
+                        .bounds(x - 40, (int) (y + 2.8 * separator + 50 + 12), 80, 20).tooltip(Tooltip.create(Component.literal("Report this issue on GitHub. Make sure to report only if searching on pvptiers.com works fine"))).build());
                 superProfile.apiErrorShown = true;
             }
             return;
