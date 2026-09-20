@@ -66,7 +66,7 @@ public class TiersClient implements ClientModInitializer {
 
     public static boolean toggleMod = true;
     public static boolean toggleRegion = true;
-    public static boolean togglePeak = false;
+    public static boolean togglePeak = true;
     public static boolean toggleIcons = true;
     public static boolean toggleTab = true;
     public static boolean toggleChat = true;
